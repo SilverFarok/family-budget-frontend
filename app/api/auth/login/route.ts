@@ -15,13 +15,16 @@ export async function POST(req: Request) {
     });
 
     const data = await res.text();
+    const headers = new Headers({
+        "content-type": "application/json",
+    });
+    const setCookie = res.headers.get("set-cookie");
+    if (setCookie) {
+        headers.set("set-cookie", setCookie);
+    }
 
     return new NextResponse(data, {
         status: res.status,
-        headers: {
-            "content-type": "application/json",
-            // дуже важливо — прокидаємо cookie
-            "set-cookie": res.headers.get("set-cookie") ?? "",
-        },
+        headers,
     });
 }

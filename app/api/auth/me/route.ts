@@ -14,18 +14,19 @@ export async function GET(req: Request) {
         });
 
         const text = await res.text();
+        const headers = new Headers({
+            "content-type": "application/json",
+        });
+        const setCookie = res.headers.get("set-cookie");
+        if (setCookie) {
+            headers.set("set-cookie", setCookie);
+        }
 
         return new NextResponse(text, {
             status: res.status,
-            headers: {
-                "content-type": "application/json",
-                "set-cookie": res.headers.get("set-cookie") ?? "",
-            },
+            headers,
         });
-    } catch (err) {
-        return NextResponse.json(
-            { error: "Auth me failed" },
-            { status: 500 }
-        );
+    } catch {
+        return NextResponse.json({ error: "Auth me failed" }, { status: 500 });
     }
 }

@@ -9,17 +9,17 @@ import {
     Cell,
 } from "recharts";
 
-
 const CATEGORY_COLORS: Record<string, string> = {
-    "Продукти": "#8e2e9e",
-    "Транспорт": "#0c38ca",
-    "Дім": "#dcc21a",
+    Продукти: "#8e2e9e",
+    Транспорт: "#0c38ca",
+    Дім: "#dcc21a",
     "Здоров'я": "#a6360e",
-    "Інше": "#7c3aed",
+    Інше: "#7c3aed",
 };
+
 export default function ChartByCategory({
-                                            data,
-                                        }: {
+    data,
+}: {
     data: { name: string; value: number }[];
 }) {
     if (!data.length) {
@@ -30,7 +30,6 @@ export default function ChartByCategory({
         );
     }
 
-    // @ts-ignore
     return (
         <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -53,10 +52,8 @@ export default function ChartByCategory({
                     ))}
                 </Pie>
 
-                <Tooltip
-                    formatter={(value) => [`₴ ${value}`, "Сума"]}
-                />
-                <Legend/>
+                <Tooltip formatter={(value) => [`₴ ${value}`, "Сума"]} />
+                <Legend />
             </PieChart>
         </ResponsiveContainer>
     );

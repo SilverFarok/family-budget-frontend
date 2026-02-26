@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ChartByCategory from "./ChartByCategory";
 
 type Expense = {
@@ -10,9 +11,23 @@ type Expense = {
     createdAt: string;
     category: string;
 };
+
+type PayloadExpenseDoc = {
+    id: string | number;
+    title?: string;
+    amount?: number;
+    category?: string;
+    createdAt?: string;
+};
+
+type PayloadExpenseListResponse = {
+    docs?: PayloadExpenseDoc[];
+};
+
 const CATEGORIES = ["Продукти", "Транспорт", "Дім", "Здоров'я", "Інше"] as const;
-const API_BASE = "http://localhost:3001";
+
 export default function ExpensesPage() {
+    const router = useRouter();
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -21,37 +36,44 @@ export default function ExpensesPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState("");
     const [editAmount, setEditAmount] = useState("");
-    const [editCategory, setEditCategory] =
-        useState<(typeof CATEGORIES)[number]>("Продукти");
+    const [editCategory, setEditCategory] = useState<(typeof CATEGORIES)[number]>("Продукти");
+    const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
         const load = async () => {
             try {
-                const res = await fetch("/api/expenses?limit=100&sort=-createdAt");
+                const meRes = await fetch("/api/auth/me", { cache: "no-store" });
+                if (!meRes.ok) {
+                    router.replace("/login");
+                    return;
+                }
 
+                const res = await fetch("/api/expenses?limit=100&sort=-createdAt", {
+                    cache: "no-store",
+                });
 
                 if (!res.ok) throw new Error(`API error: ${res.status}`);
 
-                const data = await res.json();
+                const data = (await res.json()) as PayloadExpenseListResponse;
+                const docs = data.docs ?? [];
 
-                const docs = (data?.docs ?? []) as any[];
-
-                const mapped: Expense[] = docs.map((d) => ({
-                    id: String(d.id),
-                    title: d.title ?? "",
-                    amount: Number(d.amount ?? 0),
-                    category: (d.category ?? "Інше") as (typeof CATEGORIES)[number],
-                    createdAt: d.createdAt ?? new Date().toISOString(),
+                const mapped: Expense[] = docs.map((doc) => ({
+                    id: String(doc.id),
+                    title: doc.title ?? "",
+                    amount: Number(doc.amount ?? 0),
+                    category: (doc.category ?? "Інше") as (typeof CATEGORIES)[number],
+                    createdAt: doc.createdAt ?? new Date().toISOString(),
                 }));
 
                 setExpenses(mapped);
-            } catch (e) {
-                console.error(e);
+                setIsReady(true);
+            } catch (error) {
+                console.error(error);
             }
         };
 
         load();
-    }, []);
+    }, [router]);
 
     const addExpense = async () => {
         const cleanTitle = title.trim();
@@ -61,7 +83,7 @@ export default function ExpensesPage() {
         if (!Number.isFinite(cleanAmount) || cleanAmount <= 0) return;
 
         try {
-            const res = await fetch(`/api/expenses`, {
+            const res = await fetch("/api/expenses", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -73,7 +95,7 @@ export default function ExpensesPage() {
 
             if (!res.ok) throw new Error(`POST failed: ${res.status}`);
 
-            const created = await res.json();
+            const created = (await res.json()) as PayloadExpenseDoc;
 
             const mapped: Expense = {
                 id: String(created.id),
@@ -86,8 +108,8 @@ export default function ExpensesPage() {
             setExpenses((prev) => [mapped, ...prev]);
             setTitle("");
             setAmount("");
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error(error);
         }
     };
 
@@ -99,17 +121,17 @@ export default function ExpensesPage() {
 
             if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);
 
-            setExpenses((prev) => prev.filter((e) => e.id !== id));
-        } catch (e) {
-            console.error(e);
+            setExpenses((prev) => prev.filter((item) => item.id !== id));
+        } catch (error) {
+            console.error(error);
         }
     };
 
-    const startEdit = (e: Expense) => {
-        setEditingId(e.id);
-        setEditTitle(e.title);
-        setEditAmount(String(e.amount));
-        setEditCategory(e.category as (typeof CATEGORIES)[number]);
+    const startEdit = (expense: Expense) => {
+        setEditingId(expense.id);
+        setEditTitle(expense.title);
+        setEditAmount(String(expense.amount));
+        setEditCategory(expense.category as (typeof CATEGORIES)[number]);
     };
 
     const cancelEdit = () => {
@@ -141,35 +163,35 @@ export default function ExpensesPage() {
 
             if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
 
-            const updated = await res.json();
+            const updated = (await res.json()) as PayloadExpenseDoc;
 
             setExpenses((prev) =>
                 prev.map((item) =>
                     item.id === editingId
                         ? {
-                            ...item,
-                            title: updated.title ?? cleanTitle,
-                            amount: Number(updated.amount ?? cleanAmount),
-                            category: updated.category ?? editCategory,
-                        }
+                              ...item,
+                              title: updated.title ?? cleanTitle,
+                              amount: Number(updated.amount ?? cleanAmount),
+                              category: updated.category ?? editCategory,
+                          }
                         : item
                 )
             );
 
             cancelEdit();
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error(error);
         }
     };
 
-
     const total = useMemo(
-        () => expenses.reduce((sum, e) => sum + e.amount, 0),
+        () => expenses.reduce((sum, expense) => sum + expense.amount, 0),
         [expenses]
     );
+
     const totalsByCategory = useMemo(() => {
-        return expenses.reduce<Record<string, number>>((acc, e) => {
-            acc[e.category] = (acc[e.category] ?? 0) + e.amount;
+        return expenses.reduce<Record<string, number>>((acc, expense) => {
+            acc[expense.category] = (acc[expense.category] ?? 0) + expense.amount;
             return acc;
         }, {});
     }, [expenses]);
@@ -183,8 +205,18 @@ export default function ExpensesPage() {
 
     const filteredExpenses = useMemo(() => {
         if (categoryFilter === "all") return expenses;
-        return expenses.filter((e) => e.category === categoryFilter);
+        return expenses.filter((expense) => expense.category === categoryFilter);
     }, [expenses, categoryFilter]);
+
+    if (!isReady) {
+        return (
+            <main className="min-h-screen bg-zinc-50 p-6">
+                <div className="mx-auto w-full max-w-3xl rounded-2xl border bg-white p-4 text-sm text-zinc-600">
+                    Завантаження...
+                </div>
+            </main>
+        );
+    }
 
     return (
         <main className="min-h-screen bg-zinc-50 p-6">
@@ -193,7 +225,7 @@ export default function ExpensesPage() {
                     <div>
                         <h1 className="text-2xl font-semibold">Витрати</h1>
                         <p className="mt-1 text-sm text-zinc-600">
-                            Додай витрату — і одразу побачиш підсумок.
+                            Додай витрату і одразу побачиш підсумок.
                         </p>
                     </div>
 
@@ -202,6 +234,7 @@ export default function ExpensesPage() {
                         <div className="text-lg font-semibold">₴ {total}</div>
                     </div>
                 </header>
+
                 <section className="rounded-2xl border bg-white p-4 mb-4">
                     <div className="flex flex-wrap items-center gap-3">
                         <span className="text-sm text-zinc-600">Фільтр:</span>
@@ -212,22 +245,22 @@ export default function ExpensesPage() {
                             onChange={(e) => setCategoryFilter(e.target.value)}
                         >
                             <option value="all">Всі категорії</option>
-                            {CATEGORIES.map((c) => (
-                                <option key={c} value={c}>
-                                    {c}
+                            {CATEGORIES.map((item) => (
+                                <option key={item} value={item}>
+                                    {item}
                                 </option>
                             ))}
                         </select>
                     </div>
                 </section>
+
                 <div className="flex gap-4">
                     <div className="box w-1/2">
-                        {/* Форма */}
                         <section className="rounded-2xl border bg-white p-4 mb-4">
                             <div className="flex flex-col gap-3">
                                 <input
                                     className="h-11 rounded-xl border px-3 outline-none focus:ring-2 focus:ring-black/10"
-                                    placeholder="Опис (напр. Сільпо, вечеря)"
+                                    placeholder="Опис (наприклад: Сільпо, вечеря)"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     onKeyDown={(e) => {
@@ -238,11 +271,13 @@ export default function ExpensesPage() {
                                 <select
                                     className="h-11 rounded-xl border px-3 outline-none focus:ring-2 focus:ring-black/10"
                                     value={category}
-                                    onChange={(e) => setCategory(e.target.value as (typeof CATEGORIES)[number])}
+                                    onChange={(e) =>
+                                        setCategory(e.target.value as (typeof CATEGORIES)[number])
+                                    }
                                 >
-                                    {CATEGORIES.map((c) => (
-                                        <option key={c} value={c}>
-                                            {c}
+                                    {CATEGORIES.map((item) => (
+                                        <option key={item} value={item}>
+                                            {item}
                                         </option>
                                     ))}
                                 </select>
@@ -259,7 +294,6 @@ export default function ExpensesPage() {
                                     }}
                                 />
 
-
                                 <button
                                     className="h-11 rounded-xl bg-black px-4 text-sm font-medium text-white hover:bg-zinc-800 col-span-full cursor-pointer"
                                     onClick={addExpense}
@@ -269,40 +303,42 @@ export default function ExpensesPage() {
                             </div>
 
                             <p className="mt-3 text-xs text-zinc-500">
-                                Порада: Enter теж додає витрату (бо ми не любимо зайві рухи).
+                                Порада: Enter теж додає витрату.
                             </p>
                         </section>
 
-                        {/* Список */}
                         <section className="rounded-2xl border bg-white ">
-
                             {expenses.length === 0 ? (
                                 <div className="p-6 text-sm text-zinc-600">Поки що порожньо.</div>
                             ) : (
                                 <ul className="divide-y">
-                                    {filteredExpenses.map((e) => (
-                                        <li key={e.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between flex-wrap">
-                                            {editingId === e.id ? (
-                                                // ✅ РЕЖИМ РЕДАГУВАННЯ
+                                    {filteredExpenses.map((expense) => (
+                                        <li
+                                            key={expense.id}
+                                            className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between flex-wrap"
+                                        >
+                                            {editingId === expense.id ? (
                                                 <>
                                                     <div className="flex flex-wrap gap-4">
                                                         <input
                                                             className="h-10 rounded-xl border px-3 outline-none focus:ring-2 focus:ring-black/10"
                                                             value={editTitle}
-                                                            onChange={(ev) => setEditTitle(ev.target.value)}
+                                                            onChange={(event) => setEditTitle(event.target.value)}
                                                             placeholder="Опис"
                                                         />
 
                                                         <select
                                                             className="h-10 rounded-xl border px-3 outline-none focus:ring-2 focus:ring-black/10"
                                                             value={editCategory}
-                                                            onChange={(ev) =>
-                                                                setEditCategory(ev.target.value as (typeof CATEGORIES)[number])
+                                                            onChange={(event) =>
+                                                                setEditCategory(
+                                                                    event.target.value as (typeof CATEGORIES)[number]
+                                                                )
                                                             }
                                                         >
-                                                            {CATEGORIES.map((c) => (
-                                                                <option key={c} value={c}>
-                                                                    {c}
+                                                            {CATEGORIES.map((item) => (
+                                                                <option key={item} value={item}>
+                                                                    {item}
                                                                 </option>
                                                             ))}
                                                         </select>
@@ -311,7 +347,7 @@ export default function ExpensesPage() {
                                                             className="h-10 rounded-xl border px-3 outline-none focus:ring-2 focus:ring-black/10"
                                                             type="number"
                                                             value={editAmount}
-                                                            onChange={(ev) => setEditAmount(ev.target.value)}
+                                                            onChange={(event) => setEditAmount(event.target.value)}
                                                             placeholder="Сума"
                                                         />
                                                     </div>
@@ -333,23 +369,23 @@ export default function ExpensesPage() {
                                                     </div>
                                                 </>
                                             ) : (
-                                                // ✅ РЕЖИМ ПЕРЕГЛЯДУ
                                                 <>
                                                     <div>
                                                         <div className="font-medium">
-                                                            {e.category}: {e.title}
+                                                            {expense.category}: {expense.title}
                                                         </div>
                                                         <div className="text-xs text-zinc-500">
-                                                            Час: {new Date(e.createdAt).toLocaleString("uk-UA")}
+                                                            Час:{" "}
+                                                            {new Date(expense.createdAt).toLocaleString("uk-UA")}
                                                         </div>
                                                     </div>
 
                                                     <div className="flex items-center gap-3">
-                                                        <div className="font-semibold">₴ {e.amount}</div>
+                                                        <div className="font-semibold">₴ {expense.amount}</div>
 
                                                         <button
                                                             className="h-9 rounded-lg border px-3 text-sm hover:bg-zinc-50"
-                                                            onClick={() => startEdit(e)}
+                                                            onClick={() => startEdit(expense)}
                                                             title="Редагувати"
                                                         >
                                                             Редагувати
@@ -357,7 +393,7 @@ export default function ExpensesPage() {
 
                                                         <button
                                                             className="h-9 rounded-lg border px-3 text-sm hover:bg-zinc-50"
-                                                            onClick={() => removeExpense(e.id)}
+                                                            onClick={() => removeExpense(expense.id)}
                                                             title="Видалити"
                                                         >
                                                             ✕
@@ -366,12 +402,12 @@ export default function ExpensesPage() {
                                                 </>
                                             )}
                                         </li>
-
                                     ))}
                                 </ul>
                             )}
                         </section>
                     </div>
+
                     <div className="chart w-1/2 h-full">
                         <div className="rounded-2xl border bg-white p-4 mb-4">
                             <h2 className="text-sm font-semibold">Графік по категоріях</h2>

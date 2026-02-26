@@ -7,11 +7,16 @@ export async function PATCH(
     { params }: { params: { id: string } }
 ) {
     const body = await req.text();
+    const cookie = req.headers.get("cookie") ?? "";
 
     const res = await fetch(`${PAYLOAD_BASE}/api/expenses/${params.id}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: {
+            "content-type": "application/json",
+            ...(cookie ? { cookie } : {}),
+        },
         body,
+        credentials: "include",
     });
 
     const data = await res.text();
@@ -23,11 +28,15 @@ export async function PATCH(
 }
 
 export async function DELETE(
-    _req: Request,
+    req: Request,
     { params }: { params: { id: string } }
 ) {
+    const cookie = req.headers.get("cookie") ?? "";
+
     const res = await fetch(`${PAYLOAD_BASE}/api/expenses/${params.id}`, {
         method: "DELETE",
+        headers: cookie ? { cookie } : undefined,
+        credentials: "include",
     });
 
     const data = await res.text();

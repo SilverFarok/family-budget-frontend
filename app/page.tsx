@@ -18,10 +18,10 @@ export default function Home() {
             </Link>
 
             <Link
-                href="/dashboard"
+                href="/login"
                 className="inline-flex h-11 items-center justify-center rounded-xl border px-5 text-sm font-medium hover:bg-zinc-50"
             >
-              Дашборд (поки демо)
+              Увійти
             </Link>
           </div>
         </div>
