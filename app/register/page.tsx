@@ -4,10 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function LoginPage() {
+type RegisterResponse = {
+    errors?: Array<{ message?: string }>;
+    message?: string;
+};
+
+export default function RegisterPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -15,29 +21,44 @@ export default function LoginPage() {
         setError("");
 
         const trimmedEmail = email.trim().toLowerCase();
-        if (!trimmedEmail || !password) {
-            setError("Вкажи email і пароль.");
+        if (!trimmedEmail) {
+            setError("Вкажи email.");
+            return;
+        }
+
+        if (password.length < 6) {
+            setError("Пароль має містити щонайменше 6 символів.");
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            setError("Паролі не співпадають.");
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            const res = await fetch("/api/auth/login", {
+            const res = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: trimmedEmail, password }),
+                body: JSON.stringify({
+                    email: trimmedEmail,
+                    password,
+                }),
             });
 
+            const data = (await res.json().catch(() => null)) as RegisterResponse | null;
             if (!res.ok) {
-                setError("Невірний email або пароль.");
+                const apiError = data?.errors?.[0]?.message ?? data?.message;
+                setError(apiError ?? "Не вдалося створити акаунт.");
                 return;
             }
 
-            router.push("/expenses");
+            router.push("/login");
         } catch (requestError) {
             console.error(requestError);
-            setError("Помилка під час входу.");
+            setError("Помилка під час реєстрації.");
         } finally {
             setIsSubmitting(false);
         }
@@ -46,7 +67,7 @@ export default function LoginPage() {
     return (
         <main className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
             <div className="w-full max-w-sm rounded-2xl border bg-white p-6 space-y-4">
-                <h1 className="text-xl font-semibold">Вхід</h1>
+                <h1 className="text-xl font-semibold">Реєстрація</h1>
 
                 <input
                     className="h-11 w-full rounded-xl border px-3"
@@ -62,7 +83,16 @@ export default function LoginPage() {
                     placeholder="Пароль"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="current-password"
+                    autoComplete="new-password"
+                />
+
+                <input
+                    className="h-11 w-full rounded-xl border px-3"
+                    type="password"
+                    placeholder="Повтори пароль"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
                 />
 
                 {error && <div className="text-sm text-red-600">{error}</div>}
@@ -72,13 +102,13 @@ export default function LoginPage() {
                     onClick={submit}
                     disabled={isSubmitting}
                 >
-                    {isSubmitting ? "Вхід..." : "Увійти"}
+                    {isSubmitting ? "Створення..." : "Створити акаунт"}
                 </button>
 
                 <p className="text-sm text-zinc-600">
-                    Немає акаунта?{" "}
-                    <Link href="/register" className="underline">
-                        Зареєструватися
+                    Вже є акаунт?{" "}
+                    <Link href="/login" className="underline">
+                        Увійти
                     </Link>
                 </p>
             </div>

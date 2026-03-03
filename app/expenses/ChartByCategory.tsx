@@ -1,20 +1,13 @@
 "use client";
 
-import {
-    ResponsiveContainer,
-    PieChart,
-    Pie,
-    Tooltip,
-    Legend,
-    Cell,
-} from "recharts";
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 const CATEGORY_COLORS: Record<string, string> = {
-    Продукти: "#8e2e9e",
-    Транспорт: "#0c38ca",
-    Дім: "#dcc21a",
-    "Здоров'я": "#a6360e",
-    Інше: "#7c3aed",
+    Продукти: "#ef4444",
+    Транспорт: "#3b82f6",
+    Дім: "#22c55e",
+    "Здоров'я": "#f97316",
+    Інше: "#6b7280",
 };
 
 export default function ChartByCategory({
@@ -44,11 +37,8 @@ export default function ChartByCategory({
                     animationEasing="ease-out"
                     outerRadius={90}
                 >
-                    {data.map((_, index) => (
-                        <Cell
-                            key={`cell-${index}`}
-                            fill={CATEGORY_COLORS[data[index].name] ?? "#94a3b8"}
-                        />
+                    {data.map((item, index) => (
+                        <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[item.name] ?? "#94a3b8"} />
                     ))}
                 </Pie>
 
